@@ -18,6 +18,7 @@ import json
 from random import sample
 import pandas as pd
 import argparse
+import csv
 TOTAL_ASPECTS = ["food","menu","ambience","miscellaneous","place","service","price","staff",
                  "FOOD#QUALITY","RESTAURANT#PRICES","AMBIENCE#GENERAL","RESTAURANT#MISCELLANEOUS",
                  "FOOD#PRICES","DRINKS#QUALITY","DRINKS#PRICES","RESTAURANT#GENERAL","FOOD#STYLE_OPTIONS","SERVICE#GENERAL"]
@@ -220,7 +221,168 @@ class Tokenizer4Bert:
             max_seq_len = self.max_seq_len
         return pad_and_truncate(sequence, max_seq_len, padding=padding, truncating=truncating)
 
+class YourDataset(Dataset):
+    def __init__(self, fname, tokenizer):
+        self.df = pd.read_csv(fname)
+        self.tokenizer = tokenizer
 
+    def __getitem__(self, index):
+        row = self.df.iloc[index]
+        tweet_id=row['tweet_id']
+        text = row['text'].lower().strip()
+        target = row['target'].lower().strip()
+        polarity = int(row['label'])
+        #cross_label = int(row['predicted_label'])
+
+        text_indices = self.tokenizer.text_to_sequence(text)
+        target_indices = self.tokenizer.text_to_sequence(target)
+
+        target_len = torch.sum(torch.tensor(target_indices) != 0)
+
+        text_len = torch.sum(torch.tensor(text_indices) != 0)
+        concat_bert_indices = self.tokenizer.text_to_sequence('[CLS] ' + text + ' [SEP] ' + target + " [SEP]")
+        concat_segments_indices = [0] * (text_len + 2) + [1] * (target_len + 1)
+        concat_segments_indices = pad_and_truncate(concat_segments_indices, self.tokenizer.max_seq_len)
+
+        text_bert_indices = self.tokenizer.text_to_sequence("[CLS] " + text + " [SEP]")
+        target_bert_indices = self.tokenizer.text_to_sequence("[CLS] " + target + " [SEP]")
+
+        data = {
+            'concat_bert_indices': concat_bert_indices,
+            'concat_segments_indices': concat_segments_indices,
+            'text_bert_indices': text_bert_indices,
+            'target_bert_indices': target_bert_indices,
+            'text_indices': text_indices,
+            'target_indices': target_indices,
+            'polarity': polarity,
+            #'cross_label': cross_label,
+            'text': text,
+            'target': target,
+            'index':tweet_id
+        }
+
+        return data
+
+    def __len__(self):
+        return len(self.df)
+# class YourDataset(Dataset):
+#     def __init__(self, fname, tokenizer):
+#         fin = open(fname, 'r', encoding='utf-8', newline='\n', errors='ignore')
+
+#         self.fname = fname
+#         self.tokenizer = tokenizer
+
+#         lines = fin.readlines()
+#         fin.close()
+
+#         all_data = []
+#         index = 0
+
+#         for line in lines:
+#             # Split the line using tab as the delimiter
+#             for line in lines:
+#             # Use CSV reader to handle comma-separated values within quotes
+#                parts = list(csv.reader([line], quotechar='"', delimiter=',', quoting=csv.QUOTE_ALL))[0]
+
+#             # Check if there are enough parts
+#             if len(parts) != 3:
+#                 print(f"Ignoring line {line} as it does not have the expected format.")
+#                 continue
+
+#             tweet_id, text, label = parts
+#             label = label.strip('"')  # Remove surrounding quotes from the label
+#             text = text.strip('"')    
+#             #print(line)
+#             #print("/n")
+#             # Assuming the label is in the format "FAVOR", "AGAINST", or "NONE"
+#             label_mapping = {"FAVOR": 2, "AGAINST": 0, "NONE": 1}
+            
+#             # Convert label to lowercase to handle case variations
+#             #label = label.lower()
+            
+#         #     # Check if label is in the mapping
+#         #     if label not in label_mapping:
+#         #         print(f"Ignoring line {line} due to an unknown label: {label}")
+#         #         continue
+            
+#             label_id = label_mapping[label]
+
+#             text_indices = tokenizer.text_to_sequence(text)
+
+#             text_len = np.sum(text_indices != 0)
+#             concat_bert_indices = tokenizer.text_to_sequence('[CLS] ' + text + ' [SEP]')
+#             concat_segments_indices = [0] * (text_len + 2)
+
+#             concat_segments_indices = pad_and_truncate(concat_segments_indices, tokenizer.max_seq_len)
+
+#             text_bert_indices = tokenizer.text_to_sequence("[CLS] " + text + " [SEP]")
+
+#             data = {
+#                 'concat_bert_indices': concat_bert_indices,
+#                 'concat_segments_indices': concat_segments_indices,
+#                 'text_bert_indices': text_bert_indices,
+#                 'text_indices': text_indices,
+#                 'label': label_id,
+#                 'text': text,
+#                 'polarity':label_id,
+#                 'index':tweet_id,
+#             }
+
+#             all_data.append(data)
+#             index += 1
+
+#         self.all_data = all_data
+    
+#     def __getitem__(self, index):
+#         return self.all_data[index]
+
+#     def __len__(self):
+#         return len(self.all_data)
+
+
+class P_Dataset(Dataset):
+    def __init__(self, fname, tokenizer):
+        self.df = pd.read_csv(fname)
+        self.tokenizer = tokenizer
+
+    def __getitem__(self, index):
+        row = self.df.iloc[index]
+        #tweet_id=row[]
+        text = row['Tweet'].lower().strip()
+        target = row['Target'].lower().strip()
+        polarity = int(row['Stance'])
+        cross_label = int(row['predicted_label'])
+
+        text_indices = self.tokenizer.text_to_sequence(text)
+        target_indices = self.tokenizer.text_to_sequence(target)
+
+        target_len = torch.sum(torch.tensor(target_indices) != 0)
+
+        text_len = torch.sum(torch.tensor(text_indices) != 0)
+        concat_bert_indices = self.tokenizer.text_to_sequence('[CLS] ' + text + ' [SEP] ' + target + " [SEP]")
+        concat_segments_indices = [0] * (text_len + 2) + [1] * (target_len + 1)
+        concat_segments_indices = pad_and_truncate(concat_segments_indices, self.tokenizer.max_seq_len)
+
+        text_bert_indices = self.tokenizer.text_to_sequence("[CLS] " + text + " [SEP]")
+        target_bert_indices = self.tokenizer.text_to_sequence("[CLS] " + target + " [SEP]")
+
+        data = {
+            'concat_bert_indices': concat_bert_indices,
+            'concat_segments_indices': concat_segments_indices,
+            'text_bert_indices': text_bert_indices,
+            'target_bert_indices': target_bert_indices,
+            'text_indices': text_indices,
+            'target_indices': target_indices,
+            'polarity': polarity,
+            'cross_label': cross_label,
+            'text': text,
+            'target': target
+        }
+
+        return data
+
+    def __len__(self):
+        return len(self.df)
 
 class FewshotACSADataset():
     def __init__(self, data_dir, tasks, tokenizer, opt):
@@ -814,6 +976,7 @@ class ZSSDDataset(Dataset):
         self.tokenizer = tokenizer
         # self.opt = opt
         # self.polarities = opt.polarities
+       
 
 
         lines = fin.readlines()

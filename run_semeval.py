@@ -1,5 +1,3 @@
-# !pip install tensorboardX
-
 import argparse
 from tqdm import tqdm
 import faiss
@@ -208,16 +206,11 @@ class Instructor(object):
             n_correct, n_total, loss_total = 0, 0, 0
             self.model.train()
             for i_batch, batch in enumerate(train_loader):
-                #print(batch)
-                #print(i_batch)
 
                 input_features = [batch[feat_name].to(self.opt.device) for feat_name in self.opt.input_features]
                 #print(type(input_features))
-                #print(input_features)
                 index = batch['index']
-                #print("index:",index)
                 true_stance = batch['polarity']
-                #print("true_stance:",true_stance)
                 # true_targets = batch['polarity']
                 if opt.n_gpus > 0:
                     true_stance = true_stance.to(self.opt.device)
@@ -258,10 +251,7 @@ class Instructor(object):
                     loss = logits_loss + stance_loss * self.opt.stance_loss_weight + prototype_loss * self.opt.prototype_loss_weight
                 elif 'cross' in self.opt.model_name:
                     #print(type(input_features[0]))
-                    #print("input_feature:",input_features[0])
                     feature, logits = self.model(input_features)
-                    #print("feature:",feature)
-                    #print("logits:",logits)
                     logits_loss = self.logits_criterion(logits, true_stance)
                     stance_loss = self.stance_criterion(feature,true_stance)
                     loss = logits_loss + stance_loss * self.opt.stance_loss_weight
@@ -348,8 +338,8 @@ class Instructor(object):
         preds = all_logits.argmax(axis=1)
 
         acc = accuracy_score(y_true=all_labels, y_pred=preds)
-        f1 = f1_score(all_labels, preds, average='macro')
-        f1_ma = f1_score(all_labels, preds, labels=[0,2], average='macro')
+        f1 = f1_score(all_labels, preds, average='micro',zero_division=0)
+        f1_ma = f1_score(all_labels, preds, labels=[0,2], average='micro',zero_division=0)
         # print('F1_ma:{}'.format(f1_ma))
         self.model.train()
         return acc, f1_ma
@@ -395,8 +385,8 @@ class Instructor(object):
         all_logits = np.concatenate(all_logits, axis=0)
         preds = all_logits.argmax(axis=1)
         acc = accuracy_score(y_true=all_labels, y_pred=preds)
-        f1 = f1_score(all_labels, preds, average='macro')
-        f1_ma = f1_score(all_labels, preds, labels=[0,2], average='macro')
+        f1 = f1_score(all_labels, preds, average='micro',zero_division=0)
+        f1_ma = f1_score(all_labels, preds, labels=[0,2], average='micro',zero_division=0)
         # f1_mi = f1_score(all_labels, preds, labels=[0,1], average='micro')
         report = classification_report(all_labels, preds, target_names=['Con','None','Pro'], digits=4)
         print(classification_report(all_labels, preds, digits=6))
@@ -424,11 +414,10 @@ def set_seed(seed):
 if __name__ == "__main__":
     # config
     parser = argparse.ArgumentParser()
-    parser.add_argument('-f')
 
     parser.add_argument('--model_name', default='bert-cross-topic', type=str,required=False)
     parser.add_argument('--type', default=0, help='2 for all,0 for zero shot ,1 for few shot',type=str, required=False)
-    parser.add_argument('--dataset', default='fm_la', type=str,required=False)
+    parser.add_argument('--dataset', default='dt', type=str,required=False)
     parser.add_argument('--output_par_dir',default='test_outputs',type=str)
     parser.add_argument('--polarities', default='sem16_naacl', nargs='+', help="if just two polarity switch to ['positive', 'negtive']",required=False)
     parser.add_argument('--optimizer', default='adam', type=str,required=False)
@@ -456,7 +445,7 @@ if __name__ == "__main__":
     parser.add_argument('--seed', default=1, type=int, help='set seed for reproducibility')
     parser.add_argument("--batch_size", default=16, type=int, required=False)
     parser.add_argument("--eval_batch_size", default=16, type=int, required=False)
-    parser.add_argument("--epochs", default=3, type=int, required=False)
+    parser.add_argument("--epochs", default=2, type=int, required=False)
     parser.add_argument("--eval_steps", default=3, type=int, required=False)
     parser.add_argument("--cluster_times", default=1, type=int, required=False)
 
@@ -557,5 +546,3 @@ if __name__ == "__main__":
     print('acc: {}, f1 :{}'.format(acc, f1))
     print('classification report: \n{}'.format(report))
     writer.close()
-
-
